@@ -1,9 +1,9 @@
 package spatutorial.client.services
 
 import autowire._
-import diode._
-import diode.data._
-import diode.util._
+import diode.{Action,ActionHandler,Circuit,Effect,ModelRW}
+import diode.data.{Empty,Pot,PotAction,Ready}
+import diode.util.RunAfterJS
 import diode.react.ReactConnector
 import spatutorial.shared.{TodoItem, Api}
 import boopickle.Default._

@@ -14,3 +14,7 @@ POST    /api/*path                        controllers.Application.autowireApi(pa
 
 # Logging
 POST /logging                             controllers.Application.logging
+
+GET     /docs/                            controllers.Assets.at(path="/public/swagger-ui",file="index.html")
+GET     /docs/swagger.json                controllers.ApiHelpController.getResources
+GET     /docs/*file                       controllers.Assets.at(path="/public/swagger-ui",file)

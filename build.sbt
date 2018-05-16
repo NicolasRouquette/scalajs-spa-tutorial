@@ -5,7 +5,16 @@ import sbt.Project.projectToRef
 lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared"))
   .settings(
     scalaVersion := Settings.versions.scala,
-    libraryDependencies ++= Settings.sharedDependencies.value
+    libraryDependencies ++= Settings.sharedDependencies.value,
+    scalacOptions in (Compile, compile) += s"-P:artima-supersafe:config-file:${(baseDirectory in ThisBuild).value}/project/supersafe.cfg",
+    scalacOptions in (Test, compile) += s"-P:artima-supersafe:config-file:${(baseDirectory in ThisBuild).value}/project/supersafe.cfg",
+    scalacOptions in (Compile, doc) ++= Seq(
+      "-groups",
+      "-implicits",
+      "-Xplugin-disable:artima-supersafe"),
+    scalacOptions in (Test, doc) ++= Seq("-groups",
+                                         "-implicits",
+                                         "-Xplugin-disable:artima-supersafe")
   )
   // set up settings specific to the JS project
   .jsConfigure(_ enablePlugins ScalaJSWeb)
@@ -15,7 +24,8 @@ lazy val sharedJVM = shared.jvm.settings(name := "sharedJVM")
 lazy val sharedJS = shared.js.settings(name := "sharedJS")
 
 // use eliding to drop some debug code in the production build
-lazy val elideOptions = settingKey[Seq[String]]("Set limit for elidable functions")
+lazy val elideOptions =
+  settingKey[Seq[String]]("Set limit for elidable functions")
 
 // instantiate the JS project for SBT with some additional settings
 lazy val client: Project = (project in file("client"))
@@ -30,14 +40,23 @@ lazy val client: Project = (project in file("client"))
     scalacOptions ++= elideOptions.value,
     jsDependencies ++= Settings.jsDependencies.value,
     // RuntimeDOM is needed for tests
-    jsDependencies += RuntimeDOM % "test",
+    jsEnv in Test := new org.scalajs.jsenv.jsdomnodejs.JSDOMNodeJSEnv,
     // yes, we want to package JS dependencies
     skip in packageJSDependencies := false,
     // use Scala.js provided launcher code to start the client app
     scalaJSUseMainModuleInitializer := true,
     scalaJSUseMainModuleInitializer in Test := false,
     // use uTest framework for tests
-    testFrameworks += new TestFramework("utest.runner.Framework")
+    testFrameworks += new TestFramework("utest.runner.Framework"),
+    scalacOptions in (Compile, compile) += s"-P:artima-supersafe:config-file:${(baseDirectory in ThisBuild).value}/project/supersafe.cfg",
+    scalacOptions in (Test, compile) += s"-P:artima-supersafe:config-file:${(baseDirectory in ThisBuild).value}/project/supersafe.cfg",
+    scalacOptions in (Compile, doc) ++= Seq(
+      "-groups",
+      "-implicits",
+      "-Xplugin-disable:artima-supersafe"),
+    scalacOptions in (Test, doc) ++= Seq("-groups",
+                                         "-implicits",
+                                         "-Xplugin-disable:artima-supersafe")
   )
   .enablePlugins(ScalaJSPlugin, ScalaJSWeb)
   .dependsOn(sharedJS)
@@ -53,6 +72,7 @@ lazy val server = (project in file("server"))
     scalaVersion := Settings.versions.scala,
     scalacOptions ++= Settings.scalacOptions,
     libraryDependencies ++= Settings.jvmDependencies.value,
+    libraryDependencies += guice,
     commands += ReleaseCmd,
     // triggers scalaJSPipeline when using compile or continuous compilation
     compile in Compile := ((compile in Compile) dependsOn scalaJSPipeline).value,
@@ -61,7 +81,16 @@ lazy val server = (project in file("server"))
     pipelineStages in Assets := Seq(scalaJSPipeline),
     pipelineStages := Seq(digest, gzip),
     // compress CSS
-    LessKeys.compress in Assets := true
+    LessKeys.compress in Assets := true,
+    scalacOptions in (Compile, compile) += s"-P:artima-supersafe:config-file:${(baseDirectory in ThisBuild).value}/project/supersafe.cfg",
+    scalacOptions in (Test, compile) += s"-P:artima-supersafe:config-file:${(baseDirectory in ThisBuild).value}/project/supersafe.cfg",
+    scalacOptions in (Compile, doc) ++= Seq(
+      "-groups",
+      "-implicits",
+      "-Xplugin-disable:artima-supersafe"),
+    scalacOptions in (Test, doc) ++= Seq("-groups",
+                                         "-implicits",
+                                         "-Xplugin-disable:artima-supersafe")
   )
   .enablePlugins(PlayScala)
   .disablePlugins(PlayLayoutPlugin) // use the standard directory layout instead of Play's custom
@@ -69,8 +98,8 @@ lazy val server = (project in file("server"))
   .dependsOn(sharedJVM)
 
 // Command for building a release
-lazy val ReleaseCmd = Command.command("release") {
-  state => "set elideOptions in client := Seq(\"-Xelide-below\", \"WARNING\")" ::
+lazy val ReleaseCmd = Command.command("release") { state =>
+  "set elideOptions in client := Seq(\"-Xelide-below\", \"WARNING\")" ::
     "client/clean" ::
     "client/test" ::
     "server/clean" ::
@@ -83,4 +112,4 @@ lazy val ReleaseCmd = Command.command("release") {
 // lazy val root = (project in file(".")).aggregate(client, server)
 
 // loads the Play server project at sbt startup
-onLoad in Global := (Command.process("project server", _: State)) compose (onLoad in Global).value
+onLoad in Global ~= (_ andThen ("project server" :: _))
